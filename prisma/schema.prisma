@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Organizations (tenants)
+model Organization {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String    @unique
+  logoUrl     String?
+  plan        String    @default("free") // free, pro, enterprise
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations (References)
+  users       User[]
+  dataSources DataSource[]
+  dashboards  Dashboard[]
+  reports     Report[]
+  queries     Query[]
+  aiAnalysis  AIAnalysis[]
+}
+
+// Users
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?   // Hashed password
+  image         String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  organizationId String    @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  dashboards     Dashboard[]
+  reports        Report[]
+  queries        Query[]
+}
+
+// User roles
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+  USER
+}
+
+// Authentication sessions
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Data sources
+model DataSource {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  type          String   // csv, database, api, etc.
+  configuration Json     // Connection details, API keys, etc.
+  schema        Json?    // Detected or defined schema
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  organizationId String        @db.ObjectId
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  datasets       Dataset[]
+}
+
+// Datasets (Processed data from sources)
+model Dataset {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  description  String?
+  lastRefreshed DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  dataSourceId   String     @db.ObjectId
+  dataSource     DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  visualizations Visualization[]
+}
+
+// Dashboards
+model Dashboard {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  description  String?
+  layout       Json     // Dashboard layout configuration
+  isPublic     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  organizationId String         @db.ObjectId
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creatorId      String         @db.ObjectId
+  creator        User           @relation(fields: [creatorId], references: [id])
+  visualizations DashboardVisualization[]
+}
+
+// Reports
+model Report {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  content     Json     // Report content and structure
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  organizationId String         @db.ObjectId
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creatorId      String         @db.ObjectId
+  creator        User           @relation(fields: [creatorId], references: [id])
+  visualizations ReportVisualization[]
+}
+
+// Queries (saved natural language or SQL queries)
+model Query {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  description      String?
+  naturalLanguage  String?  // The original natural language query
+  processedQuery   String?  // The generated query
+  parameters       Json?    // Query parameters
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organizationId   String        @db.ObjectId
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creatorId        String        @db.ObjectId
+  creator          User          @relation(fields: [creatorId], references: [id])
+  visualizations   Visualization[]
+}
+
+// Visualizations (charts, tables, metrics)
+model Visualization {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  type        String   // chart, table, metric, etc.
+  config      Json     // Visualization configuration
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  queryId     String?  @db.ObjectId
+  query       Query?   @relation(fields: [queryId], references: [id], onDelete: SetNull)
+  datasetId   String?  @db.ObjectId
+  dataset     Dataset? @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  dashboards  DashboardVisualization[]
+  reports     ReportVisualization[]
+}
+
+// Many-to-many relation between Dashboards and Visualizations
+model DashboardVisualization {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  dashboardId     String        @db.ObjectId
+  dashboard       Dashboard     @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  visualizationId String        @db.ObjectId
+  visualization   Visualization @relation(fields: [visualizationId], references: [id], onDelete: Cascade)
+  position        Json          // Position in the dashboard
+  
+  @@unique([dashboardId, visualizationId])
+}
+
+// Many-to-many relation between Reports and Visualizations
+model ReportVisualization {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  reportId        String        @db.ObjectId
+  report          Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  visualizationId String        @db.ObjectId
+  visualization   Visualization @relation(fields: [visualizationId], references: [id], onDelete: Cascade)
+  position        Int           // Order in the report
+  
+  @@unique([reportId, visualizationId])
+}
+
+// AI Analysis History
+model AIAnalysis {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  prompt      String   // User's natural language prompt
+  response    Json     // AI-generated response
+  feedback    String?  // User feedback on the analysis
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
