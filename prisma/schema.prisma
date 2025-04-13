@@ -14,10 +14,11 @@ model Organization {
   slug        String    @unique
   logoUrl     String?
   plan        String    @default("free") // free, pro, enterprise
+  clerkOrgId  String    @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // Relations (References)
+  // Relations
   users       User[]
   dataSources DataSource[]
   dashboards  Dashboard[]
@@ -29,19 +30,16 @@ model Organization {
 // Users
 model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
+  clerkUserId   String    @unique
   email         String    @unique
-  emailVerified DateTime?
-  password      String?   // Hashed password
-  image         String?
+  name          String?
   role          UserRole  @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  organizationId String    @db.ObjectId
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  sessions       Session[]
+  organizationId String?   @db.ObjectId
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   dashboards     Dashboard[]
   reports        Report[]
   queries        Query[]
@@ -53,15 +51,6 @@ enum UserRole {
   MANAGER
   ANALYST
   USER
-}
-
-// Authentication sessions
-model Session {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionToken String   @unique
-  userId       String   @db.ObjectId
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Data sources
