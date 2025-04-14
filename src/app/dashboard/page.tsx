@@ -1,13 +1,68 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { currentUser } from "@clerk/nextjs/server";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
-export default async function Dashboard() {
-  const user = await currentUser();
+interface Analysis {
+  id: string;
+  prompt: string;
+  createdAt: string;
+}
 
-  if (!user) {
-    redirect("/");
+interface DataSource {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export default function Dashboard() {
+  const { user, isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
+  const [recentAnalyses, setRecentAnalyses] = useState<Analysis[]>([]);
+  const [dataSources, setDataSources] = useState<DataSource[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push("/");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        setIsLoading(true);
+
+        // Fetch recent analyses
+        const analysesResponse = await fetch("/api/analysis");
+        if (analysesResponse.ok) {
+          const data = await analysesResponse.json();
+          setRecentAnalyses(data.analyses?.slice(0, 5) || []);
+        }
+
+        // Fetch data sources
+        const dataSourcesResponse = await fetch("/api/data-sources");
+        if (dataSourcesResponse.ok) {
+          const data = await dataSourcesResponse.json();
+          setDataSources(data.dataSources || []);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (isSignedIn) {
+      fetchDashboardData();
+    }
+  }, [isSignedIn]);
+
+  if (!isLoaded || !isSignedIn) {
+    return null;
   }
 
   return (
@@ -83,42 +138,156 @@ export default async function Dashboard() {
               This is your AI-powered business intelligence dashboard. Get
               started by uploading your data or connecting to your data sources.
             </p>
-            <Link href="/data-sources/new">
-              <button
-                type="button"
-                className="mt-4 inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-100"
-                aria-label="Add a data source"
-              >
-                <svg
-                  className="-ml-0.5 mr-1.5 h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
+            <div className="mt-4 flex space-x-3">
+              <Link href="/data-sources/new">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-100"
+                  aria-label="Add a data source"
                 >
-                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
-                Add Data Source
-              </button>
-            </Link>
+                  <svg
+                    className="-ml-0.5 mr-1.5 h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                  </svg>
+                  Add Data Source
+                </button>
+              </Link>
+              <Link href="/analysis/new">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+                  aria-label="Start analyzing"
+                >
+                  <svg
+                    className="-ml-0.5 mr-1.5 h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                  </svg>
+                  Start Analyzing
+                </button>
+              </Link>
+            </div>
           </div>
 
-          {/* Placeholder for charts */}
+          {/* Dashboard content */}
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Data Sources */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900">
-                Quick Insights
-              </h3>
-              <div className="mt-2 h-64 bg-gray-100 rounded-md flex items-center justify-center">
-                <p className="text-gray-500">No data available yet</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Your Data Sources
+                </h3>
+                <Link
+                  href="/data-sources"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                >
+                  View all
+                </Link>
               </div>
+              {isLoading ? (
+                <div className="h-32 flex items-center justify-center">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+                </div>
+              ) : dataSources.length > 0 ? (
+                <ul className="divide-y divide-gray-200">
+                  {dataSources.slice(0, 5).map((source) => (
+                    <li key={source.id} className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {source.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Type: {source.type}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/data-sources/${source.id}`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                        >
+                          View
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="h-32 flex flex-col items-center justify-center text-gray-500">
+                  <p className="mb-2">No data sources yet</p>
+                  <Link href="/data-sources/new">
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-100"
+                    >
+                      Add Data Source
+                    </button>
+                  </Link>
+                </div>
+              )}
             </div>
+
+            {/* Recent Analyses */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900">
-                Recent Activity
-              </h3>
-              <div className="mt-2 h-64 bg-gray-100 rounded-md flex items-center justify-center">
-                <p className="text-gray-500">No recent activity</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Recent Analyses
+                </h3>
+                <Link
+                  href="/analysis"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                >
+                  View all
+                </Link>
               </div>
+              {isLoading ? (
+                <div className="h-32 flex items-center justify-center">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+                </div>
+              ) : recentAnalyses.length > 0 ? (
+                <ul className="divide-y divide-gray-200">
+                  {recentAnalyses.map((analysis) => (
+                    <li key={analysis.id} className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {analysis.prompt.length > 40
+                              ? `${analysis.prompt.substring(0, 40)}...`
+                              : analysis.prompt}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(analysis.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/analysis/${analysis.id}`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                        >
+                          View
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="h-32 flex flex-col items-center justify-center text-gray-500">
+                  <p className="mb-2">No analyses yet</p>
+                  <Link href="/analysis/new">
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 shadow-sm hover:bg-blue-100"
+                    >
+                      Create Analysis
+                    </button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
 
