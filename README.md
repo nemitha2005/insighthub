@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InsightHub - AI-Powered Business Intelligence Platform
 
-## Getting Started
+<div align="center">
+  <img src="public/next.svg" alt="InsightHub Logo" width="120"/>
+  <h3>Make Better Business Decisions with AI</h3>
+</div>
 
-First, run the development server:
+## 🚀 Overview
+
+InsightHub is an AI-powered business intelligence platform that helps small to medium businesses make better decisions by analyzing their data using advanced AI. Upload your business data, ask questions in plain English, and get actionable insights instantly.
+
+> ⚠️ **Note:** This project is currently under heavy development and not yet ready for production use.
+
+## ✨ Key Features
+
+- **Natural Language Data Querying** - Ask questions about your business data in plain English
+- **Automated Report Generation** - AI analyzes uploaded data to identify trends, anomalies, and insights
+- **Interactive Visualizations** - Turn your data into compelling charts and graphs
+- **Document Intelligence** - Extract structured data from unstructured documents
+- **Team Collaboration** - Share insights with your team through customizable dashboards
+
+## 🛠️ Technology Stack
+
+- **Frontend**: Next.js, React, TailwindCSS
+- **Backend**: Next.js API Routes
+- **Database**: MongoDB (via Prisma ORM)
+- **Authentication**: Clerk
+- **AI**: Google Gemini API
+- **Visualizations**: Recharts
+
+## 📋 Coming Soon
+
+- Support for more data sources (Excel, databases, APIs)
+- Advanced visualization options
+- Predictive analytics and forecasting
+- Competitive intelligence features
+- Mobile app
+- And much more!
+
+## 🧰 Getting Started (For Developers)
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/insighthub.git
+cd insighthub
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys and database settings
+
+# Run the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📊 Screenshots
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+*Screenshots coming soon as the UI is still under development*
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 👥 Contributors
 
-## Learn More
+- Just me (so far!)
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<div align="center">
+  <p>© 2025 InsightHub. All rights reserved.</p>
+  <p>Made with ❤️ for data-driven businesses</p>
+</div>
