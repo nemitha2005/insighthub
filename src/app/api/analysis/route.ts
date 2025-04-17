@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { processDataSourceForAnalysis } from "@/lib/ai/data-processor";
 
 export async function POST(request: NextRequest) {
   try {
-    logger.info("Analysis request started", { 
+    logger.info("Analysis request started", {
       method: "POST",
-      url: request.url
+      url: request.url,
     });
-    
+
     const user = await currentUser();
     if (!user) {
-      logger.warn("Unauthorized analysis request", { 
-        ip: request.headers.get("x-forwarded-for") || "unknown"
+      logger.warn("Unauthorized analysis request", {
+        ip: request.headers.get("x-forwarded-for") || "unknown",
       });
       return new NextResponse(JSON.stringify({ message: "Unauthorized" }), {
         status: 401,
@@ -26,9 +27,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      logger.warn("No organization found for user", { 
+      logger.warn("No organization found for user", {
         userId: user.id,
-        clerkUserId: user.id
+        clerkUserId: user.id,
       });
       return new NextResponse(
         JSON.stringify({
@@ -38,51 +39,48 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     const body = await request.json();
     const { dataSourceId, prompt } = body;
 
     if (!dataSourceId || !prompt) {
-      logger.warn("Missing required fields", { 
+      logger.warn("Missing required fields", {
         userId: user.id,
         hasDataSourceId: !!dataSourceId,
-        hasPrompt: !!prompt
+        hasPrompt: !!prompt,
       });
       return new NextResponse(
-        JSON.stringify({ 
+        JSON.stringify({
           message: "Data source and prompt are required",
-          code: "MISSING_FIELDS"
+          code: "MISSING_FIELDS",
         }),
         { status: 400 }
       );
     }
 
-    logger.info("Finding data source", { 
+    logger.info("Finding data source", {
       userId: user.id,
       dataSourceId,
-      orgId: dbUser.organizationId
+      orgId: dbUser.organizationId,
     });
-    
+
     const dataSource = await prisma.dataSource.findUnique({
       where: {
         id: dataSourceId,
         organizationId: dbUser.organizationId,
       },
-      include: {
-        datasets: true,
-      },
     });
 
     if (!dataSource) {
-      logger.warn("Data source not found", { 
+      logger.warn("Data source not found", {
         userId: user.id,
-        dataSourceId, 
-        orgId: dbUser.organizationId
+        dataSourceId,
+        orgId: dbUser.organizationId,
       });
       return new NextResponse(
-        JSON.stringify({ 
+        JSON.stringify({
           message: "Data source not found",
-          code: "NOT_FOUND"
+          code: "NOT_FOUND",
         }),
         { status: 404 }
       );
@@ -92,23 +90,30 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       dataSourceId,
       dataSourceType: dataSource.type,
-      promptLength: prompt.length
+      promptLength: prompt.length,
     });
-    
-    const mockResponse = {
-      summary: `Analysis of "${dataSource.name}" based on your question: "${prompt}"`,
-      insights: [
-        "Your data shows interesting patterns over time.",
-        "There appears to be a correlation between X and Y variables.",
-        "The top performing item in your dataset is Item A.",
-      ],
-      visualizationSuggestion: "bar chart comparing the key metrics",
-    };
+
+    let analysisResult;
+    try {
+      analysisResult = await processDataSourceForAnalysis(dataSourceId, prompt);
+    } catch (error) {
+      logger.error("Error in data processing", error);
+
+      analysisResult = {
+        summary: `We attempted to analyze "${dataSource.name}" based on your question: "${prompt}" but encountered an error.`,
+        insights: [
+          "Our analysis engine encountered an issue processing your data.",
+          "Please verify that your data source is correctly formatted.",
+          "You might try a different or more specific question.",
+        ],
+        visualizationSuggestion: "table",
+      };
+    }
 
     const analysis = await prisma.aIAnalysis.create({
       data: {
         prompt,
-        response: mockResponse,
+        response: analysisResult,
         organizationId: dbUser.organizationId,
       },
     });
@@ -116,9 +121,9 @@ export async function POST(request: NextRequest) {
     logger.info("Analysis completed successfully", {
       userId: user.id,
       analysisId: analysis.id,
-      dataSourceId
+      dataSourceId,
     });
-    
+
     return new NextResponse(
       JSON.stringify({
         message: "Analysis completed successfully",
@@ -129,9 +134,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error("Error performing analysis", error, {
       url: request.url,
-      method: "POST"
+      method: "POST",
     });
-    
+
     return new NextResponse(
       JSON.stringify({
         message: "Error performing analysis",
@@ -145,15 +150,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    logger.info("Analysis request started", { 
+    logger.info("Analysis request started", {
       method: "GET",
-      url: request.url
+      url: request.url,
     });
-    
+
     const user = await currentUser();
     if (!user) {
-      logger.warn("Unauthorized analysis request", { 
-        ip: request.headers.get("x-forwarded-for") || "unknown"
+      logger.warn("Unauthorized analysis request", {
+        ip: request.headers.get("x-forwarded-for") || "unknown",
       });
       return new NextResponse(JSON.stringify({ message: "Unauthorized" }), {
         status: 401,
@@ -165,9 +170,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (!dbUser?.organizationId) {
-      logger.warn("No organization found for user", { 
+      logger.warn("No organization found for user", {
         userId: user.id,
-        clerkUserId: user.id
+        clerkUserId: user.id,
       });
       return new NextResponse(
         JSON.stringify({
@@ -184,9 +189,9 @@ export async function GET(request: NextRequest) {
     if (id) {
       logger.info("Fetching single analysis", {
         userId: user.id,
-        analysisId: id
+        analysisId: id,
       });
-      
+
       const analysis = await prisma.aIAnalysis.findUnique({
         where: {
           id,
@@ -197,12 +202,12 @@ export async function GET(request: NextRequest) {
       if (!analysis) {
         logger.warn("Analysis not found", {
           userId: user.id,
-          analysisId: id
+          analysisId: id,
         });
         return new NextResponse(
-          JSON.stringify({ 
+          JSON.stringify({
             message: "Analysis not found",
-            code: "NOT_FOUND"
+            code: "NOT_FOUND",
           }),
           { status: 404 }
         );
@@ -210,9 +215,9 @@ export async function GET(request: NextRequest) {
 
       logger.info("Successfully fetched analysis", {
         userId: user.id,
-        analysisId: id
+        analysisId: id,
       });
-      
+
       return new NextResponse(JSON.stringify({ analysis }), {
         status: 200,
         headers: {
@@ -222,9 +227,9 @@ export async function GET(request: NextRequest) {
     } else {
       logger.info("Fetching multiple analyses", {
         userId: user.id,
-        orgId: dbUser.organizationId
+        orgId: dbUser.organizationId,
       });
-      
+
       const analyses = await prisma.aIAnalysis.findMany({
         where: { organizationId: dbUser.organizationId },
         orderBy: { createdAt: "desc" },
@@ -233,9 +238,9 @@ export async function GET(request: NextRequest) {
 
       logger.info("Successfully fetched analyses", {
         userId: user.id,
-        count: analyses.length
+        count: analyses.length,
       });
-      
+
       return new NextResponse(JSON.stringify({ analyses }), {
         status: 200,
         headers: {
@@ -246,9 +251,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error("Error fetching analysis", error, {
       url: request.url,
-      method: "GET"
+      method: "GET",
     });
-    
+
     return new NextResponse(
       JSON.stringify({
         message: "Error fetching analysis",
