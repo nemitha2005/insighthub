@@ -18,69 +18,20 @@ export async function POST(request: NextRequest) {
 
     if (!dbUser?.organizationId) {
       return new NextResponse(
-        JSON.stringify({ message: "No organization found for user" }),
+        JSON.stringify({
+          message: "No organization found for user",
+          code: "NO_ORG",
+        }),
         { status: 400 }
       );
     }
-
-    const body = await request.json();
-    const { dataSourceId, prompt } = body;
-
-    if (!dataSourceId || !prompt) {
-      return new NextResponse(
-        JSON.stringify({ message: "Data source and prompt are required" }),
-        { status: 400 }
-      );
-    }
-
-    const dataSource = await prisma.dataSource.findUnique({
-      where: {
-        id: dataSourceId,
-        organizationId: dbUser.organizationId,
-      },
-      include: {
-        datasets: true,
-      },
-    });
-
-    if (!dataSource) {
-      return new NextResponse(
-        JSON.stringify({ message: "Data source not found" }),
-        { status: 404 }
-      );
-    }
-
-    const mockResponse = {
-      summary: `Analysis of "${dataSource.name}" based on your question: "${prompt}"`,
-      insights: [
-        "Your data shows interesting patterns over time.",
-        "There appears to be a correlation between X and Y variables.",
-        "The top performing item in your dataset is Item A.",
-      ],
-      visualizationSuggestion: "bar chart comparing the key metrics",
-    };
-
-    const analysis = await prisma.aIAnalysis.create({
-      data: {
-        prompt,
-        response: mockResponse,
-        organizationId: dbUser.organizationId,
-      },
-    });
-
-    return new NextResponse(
-      JSON.stringify({
-        message: "Analysis completed successfully",
-        analysis,
-      }),
-      { status: 201 }
-    );
   } catch (error) {
     console.error("Error performing analysis:", error);
     return new NextResponse(
       JSON.stringify({
         message: "Error performing analysis",
         error: error instanceof Error ? error.message : String(error),
+        code: "SERVER_ERROR",
       }),
       { status: 500 }
     );
@@ -102,7 +53,10 @@ export async function GET(request: NextRequest) {
 
     if (!dbUser?.organizationId) {
       return new NextResponse(
-        JSON.stringify({ message: "No organization found for user" }),
+        JSON.stringify({
+          message: "No organization found for user",
+          code: "NO_ORG",
+        }),
         { status: 400 }
       );
     }
@@ -125,14 +79,25 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      return new NextResponse(JSON.stringify({ analysis }), { status: 200 });
+      return new NextResponse(JSON.stringify({ analysis }), {
+        status: 200,
+        headers: {
+          "Cache-Control": "max-age=60, stale-while-revalidate=600",
+        },
+      });
     } else {
       const analyses = await prisma.aIAnalysis.findMany({
         where: { organizationId: dbUser.organizationId },
         orderBy: { createdAt: "desc" },
+        take: 20,
       });
 
-      return new NextResponse(JSON.stringify({ analyses }), { status: 200 });
+      return new NextResponse(JSON.stringify({ analyses }), {
+        status: 200,
+        headers: {
+          "Cache-Control": "max-age=30, stale-while-revalidate=300",
+        },
+      });
     }
   } catch (error) {
     console.error("Error fetching analysis:", error);
@@ -140,6 +105,7 @@ export async function GET(request: NextRequest) {
       JSON.stringify({
         message: "Error fetching analysis",
         error: error instanceof Error ? error.message : String(error),
+        code: "SERVER_ERROR",
       }),
       { status: 500 }
     );
